@@ -501,7 +501,6 @@ function renderExercises() {
   el.innerHTML = session.exercises.map(ex => {
     const log = workoutLog[ex.id] || {};
     const numSets = ex.sets || 3;
-    const showWeight = ex.weighted === 'yes' || ex.weighted === 'optional';
     const hasAnyData = log.sets && log.sets.some(s => s.reps || s.weight);
 
     const last = getLastLogForExercise(ex.name);
@@ -522,7 +521,7 @@ function renderExercises() {
       <div class="set-table-header">
         <span class="col-set"></span>
         <span class="col-reps">${ex.type === 'time' ? 'Secs' : 'Reps'}</span>
-        ${showWeight ? '<span class="col-weight">Weight (kg)</span>' : ''}
+        <span class="col-weight">Weight (kg)</span>
       </div>`;
 
     const setsHtml = Array.from({length: numSets}, (_, i) => {
@@ -539,15 +538,15 @@ function renderExercises() {
                  class="${repsVal ? 'filled' : ''}"
                  onchange="logSetData('${ex.id}', ${i}, 'reps', this.value); this.className=this.value?'filled':''">
         </div>
-        ${showWeight ? `<div class="col-weight">
+        <div class="col-weight">
           <input type="number"
                  step="0.5"
                  inputmode="decimal"
-                 placeholder="${ex.weighted === 'optional' ? '—' : '0'}"
+                 placeholder="—"
                  value="${weightVal}"
                  class="${weightVal ? 'filled' : ''}"
                  onchange="logSetData('${ex.id}', ${i}, 'weight', this.value); this.className=this.value?'filled':''">
-        </div>` : ''}
+        </div>
       </div>`;
     }).join('');
 
