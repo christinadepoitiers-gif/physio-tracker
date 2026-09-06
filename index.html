@@ -166,6 +166,12 @@ canvas { width: 100%; height: 200px; }
 .routine-tab { padding: 8px 16px; border-radius: 20px; background: var(--surface); font-size: 13px; font-weight: 600; white-space: nowrap; transition: all 0.2s; }
 .routine-tab.active { background: var(--accent); color: white; }
 
+/* Schedule banner */
+.schedule-banner { background: rgba(108,99,255,0.12); border: 1px solid rgba(108,99,255,0.25); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 16px; font-size: 13px; line-height: 1.5; }
+.schedule-banner strong { color: var(--accent); }
+.schedule-banner .today-label { font-weight: 700; color: var(--green); }
+.week-indicator { display: inline-block; padding: 2px 8px; border-radius: 8px; font-size: 11px; font-weight: 700; background: var(--accent); color: white; margin-left: 6px; vertical-align: middle; }
+
 .empty-state { text-align: center; padding: 40px 20px; color: var(--text2); }
 .empty-state-icon { font-size: 48px; margin-bottom: 12px; }
 .empty-state-text { font-size: 15px; line-height: 1.5; }
@@ -182,6 +188,7 @@ canvas { width: 100%; height: 200px; }
 <div class="page active" id="page-workout">
   <h1 class="page-title">Workout</h1>
   <div class="routine-selector" id="routine-selector"></div>
+  <div id="schedule-banner"></div>
   <div class="session-picker" id="session-picker"></div>
   <div id="exercise-list"></div>
   <button class="btn-primary green" id="btn-finish" style="display:none" onclick="finishWorkout()">Save Workout</button>
@@ -359,42 +366,66 @@ function getDefaultData() {
   return {
     routines: [{
       id: 'default',
-      name: 'Physio Program',
+      name: 'Hamstring Physio',
+      schedule: {
+        fixed: { 1: '1a', 2: '1b', 3: '2a', 4: '2b' },
+        weekA: { 5: '1a', 6: '1b' },
+        weekB: { 5: '2a', 6: '2b' }
+      },
       sessions: [
         {
-          id: 'a',
-          name: 'Strength Day 1',
+          id: '1a',
+          name: 'Day 1a — Floor & Ball',
           exercises: [
-            { id: 'ex1a', name: 'Single leg bridge', notes: 'Arms on chest, 2 sec hold at the top', sets: 3, reps: '8', type: 'reps', weighted: 'no' },
-            { id: 'ex2a', name: 'Single leg squats to a box', notes: '', sets: 3, reps: '8', type: 'reps', weighted: 'no' },
-            { id: 'ex3a', name: 'Lying leg press', notes: 'Lying on front, push leg into other leg at 90° and 45°', sets: 3, reps: '5 each', type: 'reps', weighted: 'no' },
-            { id: 'ex4a', name: 'Step ups', notes: 'High as possible, add weight', sets: 3, reps: '5', type: 'reps', weighted: 'optional' },
-            { id: 'ex5a', name: 'Gym ball bridge, curl & leg lifts', notes: 'Bridge, hamstring curl and leg lifts', sets: 3, reps: '6/6/6', type: 'reps', weighted: 'no' },
-            { id: 'ex6a', name: 'Gym ball kicks', notes: '', sets: 4, reps: '10-20', type: 'time', weighted: 'no' }
+            { id: 'ex1_1a', name: 'Single leg bridge', notes: 'Arms on chest, 2 sec hold at top', sets: 3, reps: '8', type: 'reps', weighted: 'no' },
+            { id: 'ex2_1a', name: 'Gym ball bridge, curl & leg lifts', notes: 'Bridge, hamstring curl and leg lifts. Home: feet on chair, bridge up/down at 90°; do alternate leg lifts off chair', sets: 3, reps: '6/6/6', type: 'reps', weighted: 'no' },
+            { id: 'ex3_1a', name: 'Gym ball kicks', notes: 'Home: flutter kicks, as if kicking a ball with no ball', sets: 4, reps: '10-20', type: 'time', weighted: 'no' }
           ]
         },
         {
-          id: 'b',
-          name: 'Strength Day 2',
+          id: '1b',
+          name: 'Day 1b — Standing & Loaded',
           exercises: [
-            { id: 'ex1b', name: 'Hamstring bridge on heels', notes: '5 sec hold', sets: 3, reps: '8', type: 'reps', weighted: 'no' },
-            { id: 'ex2b', name: 'Side plank top leg lift', notes: 'Bottom knee bent, top leg lift', sets: 3, reps: '8 each side', type: 'reps', weighted: 'no' },
-            { id: 'ex3b', name: 'Walking lunges', notes: 'With weight and rotation over front leg', sets: 3, reps: '8-10', type: 'reps', weighted: 'optional' },
-            { id: 'ex4b', name: 'Step ups – leg drive', notes: 'Leg drive version', sets: 3, reps: '5 each side', type: 'reps', weighted: 'no' },
-            { id: 'ex5b', name: 'Single leg RDL', notes: 'Hinge forward, add weight opposite hand', sets: 3, reps: '8', type: 'reps', weighted: 'optional' },
-            { id: 'ex6b', name: 'KB swings', notes: '', sets: 3, reps: '10', type: 'reps', weighted: 'optional' },
-            { id: 'ex7b', name: 'Standing bum kicks', notes: 'On the spot', sets: 3, reps: '20-30', type: 'time', weighted: 'no' }
+            { id: 'ex1_1b', name: 'Single leg squats to a box', notes: '', sets: 3, reps: '8', type: 'reps', weighted: 'no' },
+            { id: 'ex2_1b', name: 'Step ups', notes: 'As high as possible, add weight', sets: 3, reps: '5', type: 'reps', weighted: 'optional' },
+            { id: 'ex3_1b', name: 'Lying leg press', notes: 'Lying on front, push leg into other leg at 90° and 45°', sets: 3, reps: '5 each', type: 'reps', weighted: 'no' }
+          ]
+        },
+        {
+          id: '2a',
+          name: 'Day 2a — Hip Hinge & Hamstring',
+          exercises: [
+            { id: 'ex1_2a', name: 'Hamstring bridge on heels', notes: '5 sec hold', sets: 3, reps: '8', type: 'reps', weighted: 'no' },
+            { id: 'ex2_2a', name: 'Single leg RDL', notes: 'Hinge forward, add weight opposite hand', sets: 3, reps: '8', type: 'reps', weighted: 'optional' },
+            { id: 'ex3_2a', name: 'KB swings', notes: 'Home: use a water bottle or bag, just do the motion', sets: 3, reps: '10', type: 'reps', weighted: 'optional' },
+            { id: 'ex4_2a', name: 'Standing bum kicks', notes: 'On the spot', sets: 3, reps: '20-30', type: 'time', weighted: 'no' }
+          ]
+        },
+        {
+          id: '2b',
+          name: 'Day 2b — Lateral & Loaded',
+          exercises: [
+            { id: 'ex1_2b', name: 'Side plank top leg lift', notes: 'Bottom knee bent, top leg lift', sets: 3, reps: '8 each side', type: 'reps', weighted: 'no' },
+            { id: 'ex2_2b', name: 'Walking lunges', notes: 'With weight and rotation over front leg', sets: 3, reps: '8-10', type: 'reps', weighted: 'optional' },
+            { id: 'ex3_2b', name: 'Step ups – leg drive', notes: 'Leg drive version', sets: 3, reps: '5 each side', type: 'reps', weighted: 'no' }
           ]
         }
       ]
     }],
     workouts: [],
     activeRoutine: 'default',
-    reminders: { days: [1, 3, 5], time: '09:00' }
+    reminders: { days: [1, 2, 3, 4, 5, 6], time: '09:00' }
   };
 }
 
 let DATA = Store.get('data', null) || getDefaultData();
+
+if (DATA.routines?.[0]?.id === 'default' && !DATA.routines[0].schedule) {
+  const fresh = getDefaultData();
+  DATA.routines = fresh.routines;
+  DATA.reminders = fresh.reminders;
+}
+
 function save() { Store.set('data', DATA); }
 
 function getRoutine(id) { return DATA.routines.find(r => r.id === (id || DATA.activeRoutine)); }
@@ -439,6 +470,47 @@ function getLastLogForExercise(exName) {
   return null;
 }
 
+function getFortnightWeek() {
+  const epoch = new Date(2026, 8, 7);
+  const now = new Date();
+  now.setHours(0,0,0,0);
+  const diffWeeks = Math.floor((now - epoch) / (7 * 86400000));
+  return diffWeeks % 2 === 0 ? 'A' : 'B';
+}
+
+function getTodaySession(routine) {
+  if (!routine.schedule) return null;
+  const dow = new Date().getDay();
+  if (dow === 0) return null;
+  const fixed = routine.schedule.fixed[dow];
+  if (fixed) return fixed;
+  const week = getFortnightWeek();
+  const weekSchedule = week === 'A' ? routine.schedule.weekA : routine.schedule.weekB;
+  return weekSchedule?.[dow] || null;
+}
+
+function renderScheduleBanner(routine) {
+  const banner = document.getElementById('schedule-banner');
+  if (!routine.schedule) { banner.innerHTML = ''; return; }
+
+  const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const dow = new Date().getDay();
+  const week = getFortnightWeek();
+  const todaySession = getTodaySession(routine);
+
+  if (dow === 0) {
+    banner.innerHTML = `<div class="schedule-banner"><span class="today-label">Rest day</span> — no session scheduled today.</div>`;
+    return;
+  }
+
+  const sessionName = todaySession ? routine.sessions.find(s => s.id === todaySession)?.name : null;
+  const weekLabel = (dow >= 5) ? ` <span class="week-indicator">Week ${week}</span>` : '';
+
+  banner.innerHTML = `<div class="schedule-banner">
+    <span class="today-label">${dayNames[dow]}</span>: ${sessionName ? `<strong>${sessionName}</strong>` : 'Rest'}${weekLabel}
+  </div>`;
+}
+
 function renderWorkout() {
   const routine = getActiveRoutine();
   if (!routine) return;
@@ -448,19 +520,26 @@ function renderWorkout() {
     `<button class="routine-tab ${r.id === DATA.activeRoutine ? 'active' : ''}" onclick="switchRoutine('${r.id}')">${r.name}</button>`
   ).join('');
 
+  renderScheduleBanner(routine);
+
   const sp = document.getElementById('session-picker');
   sp.innerHTML = routine.sessions.map(s =>
     `<button class="session-btn ${currentSession === s.id ? 'active' : ''}" onclick="selectSession('${s.id}')">${s.name}</button>`
   ).join('');
 
   if (!currentSession) {
-    const lastWorkout = DATA.workouts.filter(w => w.routineId === routine.id).slice(-1)[0];
-    if (lastWorkout) {
-      const lastIdx = routine.sessions.findIndex(s => s.id === lastWorkout.sessionId);
-      const nextIdx = (lastIdx + 1) % routine.sessions.length;
-      currentSession = routine.sessions[nextIdx].id;
+    const todaySession = getTodaySession(routine);
+    if (todaySession && routine.sessions.find(s => s.id === todaySession)) {
+      currentSession = todaySession;
     } else {
-      currentSession = routine.sessions[0]?.id;
+      const lastWorkout = DATA.workouts.filter(w => w.routineId === routine.id).slice(-1)[0];
+      if (lastWorkout) {
+        const lastIdx = routine.sessions.findIndex(s => s.id === lastWorkout.sessionId);
+        const nextIdx = (lastIdx + 1) % routine.sessions.length;
+        currentSession = routine.sessions[nextIdx].id;
+      } else {
+        currentSession = routine.sessions[0]?.id;
+      }
     }
     sp.innerHTML = routine.sessions.map(s =>
       `<button class="session-btn ${currentSession === s.id ? 'active' : ''}" onclick="selectSession('${s.id}')">${s.name}</button>`
