@@ -420,7 +420,8 @@ function getDefaultData() {
 
 let DATA = Store.get('data', null) || getDefaultData();
 
-if (DATA.routines?.[0]?.id === 'default' && !DATA.routines[0].schedule) {
+if (DATA.routines?.[0]?.id === 'default' &&
+    (!DATA.routines[0].schedule || DATA.routines[0].sessions?.length === 2)) {
   const fresh = getDefaultData();
   DATA.routines = fresh.routines;
   DATA.reminders = fresh.reminders;
