@@ -95,7 +95,7 @@ input, textarea, select { font-family: inherit; font-size: 16px; }
 .cal-day.has-workout { background: var(--accent); color: white; font-weight: 600; }
 .cal-day.today { border: 2px solid var(--accent); }
 .cal-day.empty { visibility: hidden; }
-.cal-day .session-dot { position: absolute; bottom: 3px; font-size: 8px; }
+.cal-day .session-dot { position: absolute; bottom: 2px; font-size: 9px; font-weight: 700; letter-spacing: -0.3px; }
 
 /* Stats */
 .stat-row { display: flex; gap: 10px; margin-bottom: 16px; }
@@ -375,7 +375,7 @@ function getDefaultData() {
       sessions: [
         {
           id: '1a',
-          name: 'Day 1a — Floor & Ball',
+          name: 'Day 1a',
           exercises: [
             { id: 'ex1_1a', name: 'Single leg bridge', notes: 'Arms on chest, 2 sec hold at top', sets: 3, reps: '8', type: 'reps', weighted: 'no' },
             { id: 'ex2_1a', name: 'Gym ball bridge, curl & leg lifts', notes: 'Bridge, hamstring curl and leg lifts. Home: feet on chair, bridge up/down at 90°; do alternate leg lifts off chair', sets: 3, reps: '6/6/6', type: 'reps', weighted: 'no' },
@@ -384,7 +384,7 @@ function getDefaultData() {
         },
         {
           id: '1b',
-          name: 'Day 1b — Standing & Loaded',
+          name: 'Day 1b',
           exercises: [
             { id: 'ex1_1b', name: 'Single leg squats to a box', notes: '', sets: 3, reps: '8', type: 'reps', weighted: 'no' },
             { id: 'ex2_1b', name: 'Step ups', notes: 'As high as possible, add weight', sets: 3, reps: '5', type: 'reps', weighted: 'optional' },
@@ -393,7 +393,7 @@ function getDefaultData() {
         },
         {
           id: '2a',
-          name: 'Day 2a — Hip Hinge & Hamstring',
+          name: 'Day 2a',
           exercises: [
             { id: 'ex1_2a', name: 'Hamstring bridge on heels', notes: '5 sec hold', sets: 3, reps: '8', type: 'reps', weighted: 'no' },
             { id: 'ex2_2a', name: 'Single leg RDL', notes: 'Hinge forward, add weight opposite hand', sets: 3, reps: '8', type: 'reps', weighted: 'optional' },
@@ -403,7 +403,7 @@ function getDefaultData() {
         },
         {
           id: '2b',
-          name: 'Day 2b — Lateral & Loaded',
+          name: 'Day 2b',
           exercises: [
             { id: 'ex1_2b', name: 'Side plank top leg lift', notes: 'Bottom knee bent, top leg lift', sets: 3, reps: '8 each side', type: 'reps', weighted: 'no' },
             { id: 'ex2_2b', name: 'Walking lunges', notes: 'With weight and rotation over front leg', sets: 3, reps: '8-10', type: 'reps', weighted: 'optional' },
@@ -499,7 +499,7 @@ function renderScheduleBanner(routine) {
   const todaySession = getTodaySession(routine);
 
   if (dow === 0) {
-    banner.innerHTML = `<div class="schedule-banner"><span class="today-label">Rest day</span> — no session scheduled today.</div>`;
+    banner.innerHTML = `<div class="schedule-banner"><span class="today-label">Sunday</span> — rest day (or pick any session below)</div>`;
     return;
   }
 
@@ -507,7 +507,7 @@ function renderScheduleBanner(routine) {
   const weekLabel = (dow >= 5) ? ` <span class="week-indicator">Week ${week}</span>` : '';
 
   banner.innerHTML = `<div class="schedule-banner">
-    <span class="today-label">${dayNames[dow]}</span>: ${sessionName ? `<strong>${sessionName}</strong>` : 'Rest'}${weekLabel}
+    <span class="today-label">${dayNames[dow]}</span> suggestion: ${sessionName ? `<strong>${sessionName}</strong>` : 'Rest'}${weekLabel} — or pick any session below
   </div>`;
 }
 
@@ -793,7 +793,7 @@ function renderCalendar() {
     if (d.getMonth() === calMonth && d.getFullYear() === calYear) {
       const day = d.getDate();
       if (!workoutMap[day]) workoutMap[day] = [];
-      workoutMap[day].push(w.sessionName?.charAt(w.sessionName.length - 1) || '•');
+      workoutMap[day].push(w.sessionName || w.sessionId || '•');
     }
   });
 
@@ -806,8 +806,9 @@ function renderCalendar() {
 
   for (let d = 1; d <= daysInMonth; d++) {
     const isToday = d === today.getDate() && calMonth === today.getMonth() && calYear === today.getFullYear();
-    const hasWorkout = workoutMap[d];
-    html += `<div class="cal-day ${hasWorkout ? 'has-workout' : ''} ${isToday ? 'today' : ''}">${d}${hasWorkout ? `<span class="session-dot">${hasWorkout.join('')}</span>` : ''}</div>`;
+    const sessions = workoutMap[d];
+    const sessionLabel = sessions ? sessions.join(', ') : '';
+    html += `<div class="cal-day ${sessions ? 'has-workout' : ''} ${isToday ? 'today' : ''}">${d}${sessions ? `<span class="session-dot">${sessionLabel}</span>` : ''}</div>`;
   }
 
   document.getElementById('cal-grid').innerHTML = html;
