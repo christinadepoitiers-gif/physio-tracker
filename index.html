@@ -46,7 +46,7 @@ input, textarea, select { font-family: inherit; font-size: 16px; }
 .badge.red { background: var(--accent2); }
 
 /* Workout page */
-.session-picker { display: flex; gap: 10px; margin-bottom: 20px; }
+.session-picker { display: flex; gap: 10px; margin-bottom: 20px; overflow-x: auto; padding-bottom: 4px; }
 .session-btn { flex: 1; padding: 14px; border-radius: var(--radius); background: var(--surface); font-size: 15px; font-weight: 600; text-align: center; transition: all 0.2s; }
 .session-btn.active { background: var(--accent); color: white; }
 
@@ -173,7 +173,7 @@ canvas { width: 100%; height: 200px; }
 .week-indicator { display: inline-block; padding: 2px 8px; border-radius: 8px; font-size: 11px; font-weight: 700; background: var(--accent); color: white; margin-left: 6px; vertical-align: middle; }
 
 /* Custom session picker */
-.custom-exercise-list { max-height: 50dvh; overflow-y: auto; }
+.custom-exercise-list { max-height: 45dvh; overflow-y: auto; }
 .custom-exercise-item { display: flex; align-items: flex-start; gap: 12px; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.06); }
 .custom-exercise-item:last-child { border-bottom: none; }
 .custom-exercise-item input[type="checkbox"] { width: 22px; height: 22px; margin-top: 2px; accent-color: var(--accent); flex-shrink: 0; }
@@ -183,6 +183,11 @@ canvas { width: 100%; height: 200px; }
 .custom-exercise-item .ex-info-source { font-size: 11px; color: var(--accent); margin-top: 2px; }
 .custom-session-btn { padding: 14px; border-radius: var(--radius); background: rgba(108,99,255,0.15); font-size: 14px; font-weight: 600; color: var(--accent); text-align: center; border: 2px dashed rgba(108,99,255,0.3); transition: all 0.2s; white-space: nowrap; }
 .custom-session-btn.active { background: var(--accent); color: white; border-style: solid; }
+.saved-custom-btn { position: relative; }
+.saved-custom-btn .del-saved { position: absolute; top: -6px; right: -6px; width: 20px; height: 20px; border-radius: 50%; background: var(--accent2); color: white; font-size: 12px; line-height: 20px; text-align: center; display: none; }
+.saved-custom-btn:active .del-saved, .saved-custom-btn:hover .del-saved { display: block; }
+.custom-modal-actions { display: flex; gap: 10px; margin-top: 16px; }
+.custom-modal-actions button { flex: 1; }
 
 .empty-state { text-align: center; padding: 40px 20px; color: var(--text2); }
 .empty-state-icon { font-size: 48px; margin-bottom: 12px; }
@@ -332,10 +337,18 @@ canvas { width: 100%; height: 200px; }
 
 <div class="modal-overlay" id="modal-custom-session" onclick="closeModal(event, 'modal-custom-session')">
   <div class="modal">
-    <div class="modal-title">Build Custom Session</div>
-    <p style="font-size:13px;color:var(--text2);margin-bottom:14px">Pick the exercises you want to do today:</p>
+    <div class="modal-title" id="custom-modal-title">Build Custom Session</div>
+    <div class="form-group" style="margin-bottom:10px">
+      <label>Session Name (optional — save it for later)</label>
+      <input type="text" id="custom-session-name" placeholder="e.g. Quick Home Set">
+    </div>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:14px">Pick the exercises you want:</p>
     <div class="custom-exercise-list" id="custom-exercise-list"></div>
-    <button class="btn-primary" id="btn-start-custom" onclick="startCustomSession()">Start Custom Session</button>
+    <input type="hidden" id="editing-custom-id" value="">
+    <div class="custom-modal-actions">
+      <button class="btn-primary" onclick="startCustomSession(false)">Start Now</button>
+      <button class="btn-primary green" onclick="startCustomSession(true)">Save & Start</button>
+    </div>
   </div>
 </div>
 
@@ -545,11 +558,17 @@ function renderWorkout() {
   renderScheduleBanner(routine);
 
   const sp = document.getElementById('session-picker');
-  const sessionBtns = routine.sessions.map(s =>
-    `<button class="session-btn ${currentSession === s.id ? 'active' : ''}" onclick="selectSession('${s.id}')">${s.name}</button>`
-  ).join('');
-  const customBtn = `<button class="custom-session-btn ${currentSession === '_custom' ? 'active' : ''}" onclick="openCustomSessionPicker()">+ Custom</button>`;
-  sp.innerHTML = sessionBtns + customBtn;
+  function buildSessionPicker() {
+    const sessionBtns = routine.sessions.map(s =>
+      `<button class="session-btn ${currentSession === s.id ? 'active' : ''}" onclick="selectSession('${s.id}')">${s.name}</button>`
+    ).join('');
+    const savedBtns = (routine.customSessions || []).map(cs =>
+      `<button class="session-btn saved-custom-btn ${currentSession === cs.id ? 'active' : ''}" onclick="loadSavedCustom('${cs.id}')">${cs.name}<span class="del-saved" onclick="event.stopPropagation(); deleteSavedCustom('${cs.id}')">×</span></button>`
+    ).join('');
+    const customBtn = `<button class="custom-session-btn ${currentSession === '_custom' && !customSession?.savedId ? 'active' : ''}" onclick="openCustomSessionPicker()">+ Custom</button>`;
+    return sessionBtns + savedBtns + customBtn;
+  }
+  sp.innerHTML = buildSessionPicker();
 
   if (!currentSession) {
     const todaySession = getTodaySession(routine);
@@ -565,10 +584,7 @@ function renderWorkout() {
         currentSession = routine.sessions[0]?.id;
       }
     }
-    const sessionBtns2 = routine.sessions.map(s =>
-      `<button class="session-btn ${currentSession === s.id ? 'active' : ''}" onclick="selectSession('${s.id}')">${s.name}</button>`
-    ).join('');
-    sp.innerHTML = sessionBtns2 + customBtn;
+    sp.innerHTML = buildSessionPicker();
   }
 
   renderExercises();
@@ -762,16 +778,24 @@ function finishWorkout() {
 // ============ CUSTOM SESSION ============
 let customSession = null;
 
-function openCustomSessionPicker() {
+function openCustomSessionPicker(editId) {
   const routine = getActiveRoutine();
   if (!routine) return;
+
+  const existing = editId ? (routine.customSessions || []).find(cs => cs.id === editId) : null;
+  const checkedIds = existing ? existing.exerciseIds : [];
+
+  document.getElementById('custom-modal-title').textContent = existing ? 'Edit Custom Session' : 'Build Custom Session';
+  document.getElementById('custom-session-name').value = existing ? existing.name : '';
+  document.getElementById('editing-custom-id').value = editId || '';
 
   const list = document.getElementById('custom-exercise-list');
   let html = '';
   routine.sessions.forEach(session => {
     session.exercises.forEach(ex => {
+      const checked = checkedIds.includes(ex.id) ? 'checked' : '';
       html += `<label class="custom-exercise-item">
-        <input type="checkbox" value="${ex.id}" data-session="${session.id}">
+        <input type="checkbox" value="${ex.id}" data-session="${session.id}" ${checked}>
         <div class="ex-info">
           <div class="ex-info-name">${ex.name}</div>
           <div class="ex-info-meta">${ex.sets} × ${ex.reps} ${ex.type === 'time' ? 'sec' : 'reps'}${ex.notes ? ' · ' + ex.notes : ''}</div>
@@ -785,21 +809,49 @@ function openCustomSessionPicker() {
   document.getElementById('modal-custom-session').classList.add('active');
 }
 
-function startCustomSession() {
+function startCustomSession(shouldSave) {
   const checkboxes = document.querySelectorAll('#custom-exercise-list input[type="checkbox"]:checked');
   if (checkboxes.length === 0) { showToast('Pick at least one exercise'); return; }
 
   const routine = getActiveRoutine();
+  const name = document.getElementById('custom-session-name').value.trim();
+  const editId = document.getElementById('editing-custom-id').value;
+
+  if (shouldSave && !name) { showToast('Enter a name to save'); return; }
+
   const exercises = [];
+  const exerciseIds = [];
   checkboxes.forEach(cb => {
     const session = routine.sessions.find(s => s.id === cb.dataset.session);
     const ex = session?.exercises.find(e => e.id === cb.value);
-    if (ex) exercises.push({ ...ex, id: ex.id });
+    if (ex) {
+      exercises.push({ ...ex });
+      exerciseIds.push(ex.id);
+    }
   });
+
+  if (shouldSave) {
+    if (!routine.customSessions) routine.customSessions = [];
+    const savedSession = {
+      id: editId || generateId(),
+      name,
+      exerciseIds
+    };
+    if (editId) {
+      const idx = routine.customSessions.findIndex(cs => cs.id === editId);
+      if (idx >= 0) routine.customSessions[idx] = savedSession;
+      else routine.customSessions.push(savedSession);
+    } else {
+      routine.customSessions.push(savedSession);
+    }
+    save();
+    showToast('Custom session saved');
+  }
 
   customSession = {
     id: '_custom',
-    name: 'Custom',
+    savedId: shouldSave ? (editId || routine.customSessions[routine.customSessions.length - 1].id) : null,
+    name: name || 'Custom',
     exercises
   };
 
@@ -807,6 +859,34 @@ function startCustomSession() {
   workoutLog = {};
   document.getElementById('modal-custom-session').classList.remove('active');
   renderWorkout();
+}
+
+function loadSavedCustom(id) {
+  const routine = getActiveRoutine();
+  const saved = (routine.customSessions || []).find(cs => cs.id === id);
+  if (!saved) return;
+
+  const exercises = [];
+  routine.sessions.forEach(session => {
+    session.exercises.forEach(ex => {
+      if (saved.exerciseIds.includes(ex.id)) exercises.push({ ...ex });
+    });
+  });
+
+  customSession = { id: '_custom', savedId: id, name: saved.name, exercises };
+  currentSession = '_custom';
+  workoutLog = {};
+  renderWorkout();
+}
+
+function deleteSavedCustom(id) {
+  if (!confirm('Delete this saved custom session?')) return;
+  const routine = getActiveRoutine();
+  routine.customSessions = (routine.customSessions || []).filter(cs => cs.id !== id);
+  if (customSession?.savedId === id) { customSession = null; currentSession = routine.sessions[0]?.id; }
+  save();
+  renderWorkout();
+  showToast('Custom session deleted');
 }
 
 // ============ PROGRESS PAGE ============
