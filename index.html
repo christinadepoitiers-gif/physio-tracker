@@ -172,6 +172,18 @@ canvas { width: 100%; height: 200px; }
 .schedule-banner .today-label { font-weight: 700; color: var(--green); }
 .week-indicator { display: inline-block; padding: 2px 8px; border-radius: 8px; font-size: 11px; font-weight: 700; background: var(--accent); color: white; margin-left: 6px; vertical-align: middle; }
 
+/* Custom session picker */
+.custom-exercise-list { max-height: 50dvh; overflow-y: auto; }
+.custom-exercise-item { display: flex; align-items: flex-start; gap: 12px; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.06); }
+.custom-exercise-item:last-child { border-bottom: none; }
+.custom-exercise-item input[type="checkbox"] { width: 22px; height: 22px; margin-top: 2px; accent-color: var(--accent); flex-shrink: 0; }
+.custom-exercise-item .ex-info { flex: 1; }
+.custom-exercise-item .ex-info-name { font-weight: 600; font-size: 14px; }
+.custom-exercise-item .ex-info-meta { font-size: 12px; color: var(--text2); margin-top: 2px; }
+.custom-exercise-item .ex-info-source { font-size: 11px; color: var(--accent); margin-top: 2px; }
+.custom-session-btn { padding: 14px; border-radius: var(--radius); background: rgba(108,99,255,0.15); font-size: 14px; font-weight: 600; color: var(--accent); text-align: center; border: 2px dashed rgba(108,99,255,0.3); transition: all 0.2s; white-space: nowrap; }
+.custom-session-btn.active { background: var(--accent); color: white; border-style: solid; }
+
 .empty-state { text-align: center; padding: 40px 20px; color: var(--text2); }
 .empty-state-icon { font-size: 48px; margin-bottom: 12px; }
 .empty-state-text { font-size: 15px; line-height: 1.5; }
@@ -315,6 +327,15 @@ canvas { width: 100%; height: 200px; }
       <input type="text" id="routine-sessions-input" placeholder="e.g. Session A, Session B">
     </div>
     <button class="btn-primary" onclick="saveNewRoutine()">Create Routine</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-custom-session" onclick="closeModal(event, 'modal-custom-session')">
+  <div class="modal">
+    <div class="modal-title">Build Custom Session</div>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:14px">Pick the exercises you want to do today:</p>
+    <div class="custom-exercise-list" id="custom-exercise-list"></div>
+    <button class="btn-primary" id="btn-start-custom" onclick="startCustomSession()">Start Custom Session</button>
   </div>
 </div>
 
@@ -524,9 +545,11 @@ function renderWorkout() {
   renderScheduleBanner(routine);
 
   const sp = document.getElementById('session-picker');
-  sp.innerHTML = routine.sessions.map(s =>
+  const sessionBtns = routine.sessions.map(s =>
     `<button class="session-btn ${currentSession === s.id ? 'active' : ''}" onclick="selectSession('${s.id}')">${s.name}</button>`
   ).join('');
+  const customBtn = `<button class="custom-session-btn ${currentSession === '_custom' ? 'active' : ''}" onclick="openCustomSessionPicker()">+ Custom</button>`;
+  sp.innerHTML = sessionBtns + customBtn;
 
   if (!currentSession) {
     const todaySession = getTodaySession(routine);
@@ -542,9 +565,10 @@ function renderWorkout() {
         currentSession = routine.sessions[0]?.id;
       }
     }
-    sp.innerHTML = routine.sessions.map(s =>
+    const sessionBtns2 = routine.sessions.map(s =>
       `<button class="session-btn ${currentSession === s.id ? 'active' : ''}" onclick="selectSession('${s.id}')">${s.name}</button>`
     ).join('');
+    sp.innerHTML = sessionBtns2 + customBtn;
   }
 
   renderExercises();
@@ -566,7 +590,7 @@ function selectSession(id) {
 
 function renderExercises() {
   const routine = getActiveRoutine();
-  const session = routine?.sessions.find(s => s.id === currentSession);
+  const session = currentSession === '_custom' && customSession ? customSession : routine?.sessions.find(s => s.id === currentSession);
   const el = document.getElementById('exercise-list');
   const btn = document.getElementById('btn-finish');
 
@@ -630,13 +654,14 @@ function renderExercises() {
       </div>`;
     }).join('');
 
+    const isCustom = currentSession === '_custom';
     return `<div class="exercise-card ${hasAnyData ? 'logged' : ''}">
       <div class="exercise-card-header">
         <div class="exercise-name">${ex.name}</div>
-        <div class="exercise-card-actions">
+        ${!isCustom ? `<div class="exercise-card-actions">
           <button class="edit-btn" onclick="editExerciseFromWorkout('${ex.id}')">✎</button>
           <button class="del-btn" onclick="deleteExerciseFromWorkout('${ex.id}')">×</button>
-        </div>
+        </div>` : ''}
       </div>
       ${ex.notes ? `<div class="exercise-detail">${ex.notes}</div>` : ''}
       <div class="exercise-target">Target: ${numSets} × ${ex.reps} ${ex.type === 'time' ? 'sec' : 'reps'}</div>
@@ -646,7 +671,7 @@ function renderExercises() {
         ${setsHtml}
       </div>
     </div>`;
-  }).join('') + `<button class="add-exercise-btn" onclick="addExerciseFromWorkout()">+ Add Exercise</button>`;
+  }).join('') + (currentSession !== '_custom' ? `<button class="add-exercise-btn" onclick="addExerciseFromWorkout()">+ Add Exercise</button>` : '');
 }
 
 function editExerciseFromWorkout(exId) {
@@ -687,7 +712,7 @@ function logSetData(exId, setIdx, field, value) {
 
 function finishWorkout() {
   const routine = getActiveRoutine();
-  const session = routine?.sessions.find(s => s.id === currentSession);
+  const session = currentSession === '_custom' && customSession ? customSession : routine?.sessions.find(s => s.id === currentSession);
   if (!session) return;
 
   const loggedExercises = session.exercises.filter(ex => {
@@ -722,10 +747,65 @@ function finishWorkout() {
   save();
   workoutLog = {};
 
-  const nextIdx = (routine.sessions.findIndex(s => s.id === currentSession) + 1) % routine.sessions.length;
-  currentSession = routine.sessions[nextIdx].id;
+  if (currentSession === '_custom') {
+    customSession = null;
+    currentSession = routine.sessions[0]?.id;
+  } else {
+    const nextIdx = (routine.sessions.findIndex(s => s.id === currentSession) + 1) % routine.sessions.length;
+    currentSession = routine.sessions[nextIdx].id;
+  }
 
   showToast(`Workout saved! ${loggedExercises.length} exercises logged`);
+  renderWorkout();
+}
+
+// ============ CUSTOM SESSION ============
+let customSession = null;
+
+function openCustomSessionPicker() {
+  const routine = getActiveRoutine();
+  if (!routine) return;
+
+  const list = document.getElementById('custom-exercise-list');
+  let html = '';
+  routine.sessions.forEach(session => {
+    session.exercises.forEach(ex => {
+      html += `<label class="custom-exercise-item">
+        <input type="checkbox" value="${ex.id}" data-session="${session.id}">
+        <div class="ex-info">
+          <div class="ex-info-name">${ex.name}</div>
+          <div class="ex-info-meta">${ex.sets} × ${ex.reps} ${ex.type === 'time' ? 'sec' : 'reps'}${ex.notes ? ' · ' + ex.notes : ''}</div>
+          <div class="ex-info-source">from ${session.name}</div>
+        </div>
+      </label>`;
+    });
+  });
+
+  list.innerHTML = html;
+  document.getElementById('modal-custom-session').classList.add('active');
+}
+
+function startCustomSession() {
+  const checkboxes = document.querySelectorAll('#custom-exercise-list input[type="checkbox"]:checked');
+  if (checkboxes.length === 0) { showToast('Pick at least one exercise'); return; }
+
+  const routine = getActiveRoutine();
+  const exercises = [];
+  checkboxes.forEach(cb => {
+    const session = routine.sessions.find(s => s.id === cb.dataset.session);
+    const ex = session?.exercises.find(e => e.id === cb.value);
+    if (ex) exercises.push({ ...ex, id: ex.id });
+  });
+
+  customSession = {
+    id: '_custom',
+    name: 'Custom',
+    exercises
+  };
+
+  currentSession = '_custom';
+  workoutLog = {};
+  document.getElementById('modal-custom-session').classList.remove('active');
   renderWorkout();
 }
 
